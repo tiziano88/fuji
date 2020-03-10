@@ -29,22 +29,22 @@ struct Field {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-struct Entry {
+pub struct Entry {
     name: String,
     values: Vec<Value>,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-struct Value {
+pub struct Value {
     value: String,
     children: Vec<Entry>,
 }
 
-fn parse_entry(input: &str) -> IResult<&str, Entry> {
+pub fn parse_entry(input: &str) -> IResult<&str, Entry> {
     map(
         tuple((
             terminated(alphanumeric1, tag("=")),
-            separated_list(tag(","), parse_value),
+            separated_list(terminated(tag(","), multispace0), parse_value),
         )),
         |(name, values): (&str, Vec<Value>)| Entry {
             name: name.to_string(),
@@ -53,7 +53,7 @@ fn parse_entry(input: &str) -> IResult<&str, Entry> {
     )(input)
 }
 
-fn parse_value(input: &str) -> IResult<&str, Value> {
+pub fn parse_value(input: &str) -> IResult<&str, Value> {
     map(
         tuple((
             terminated(alphanumeric1, multispace0),
@@ -103,6 +103,22 @@ mod tests {
                 },
             },
             Test {
+                string: "foo=a,b".to_string(),
+                value: Entry {
+                    name: "foo".to_string(),
+                    values: vec![
+                        Value {
+                            value: "a".to_string(),
+                            children: vec![],
+                        },
+                        Value {
+                            value: "b".to_string(),
+                            children: vec![],
+                        },
+                    ],
+                },
+            },
+            Test {
                 string: "foo=bar{zoo=qat}".to_string(),
                 value: Entry {
                     name: "foo".to_string(),
@@ -116,6 +132,99 @@ mod tests {
                             }],
                         }],
                     }],
+                },
+            },
+            Test {
+                string: "foo=bar{zoo=qat},xxx{aaa=bbb}".to_string(),
+                value: Entry {
+                    name: "foo".to_string(),
+                    values: vec![
+                        Value {
+                            value: "bar".to_string(),
+                            children: vec![Entry {
+                                name: "zoo".to_string(),
+                                values: vec![Value {
+                                    value: "qat".to_string(),
+                                    children: vec![],
+                                }],
+                            }],
+                        },
+                        Value {
+                            value: "xxx".to_string(),
+                            children: vec![Entry {
+                                name: "aaa".to_string(),
+                                values: vec![Value {
+                                    value: "bbb".to_string(),
+                                    children: vec![],
+                                }],
+                            }],
+                        },
+                    ],
+                },
+            },
+            Test {
+                string: "a=b{c=d{e=f g=h}i=j},k{l=m{n=o}}".to_string(),
+                value: Entry {
+                    name: "a".to_string(),
+                    values: vec![
+                        Value {
+                            value: "b".to_string(),
+                            children: vec![Entry {
+                                name: "c".to_string(),
+                                values: vec![Value {
+                                    value: "d".to_string(),
+                                    children: vec![Entry {
+                                        name: "e".to_string(),
+                                        values: vec![],
+                                    }],
+                                }],
+                            }],
+                        },
+                        Value {
+                            value: "k".to_string(),
+                            children: vec![Entry {
+                                name: "l".to_string(),
+                                values: vec![Value {
+                                    value: "m".to_string(),
+                                    children: vec![Entry {
+                                        name: "n".to_string(),
+                                        values: vec![Value {
+                                            value: "o".to_string(),
+                                            children: vec![],
+                                        }],
+                                    }],
+                                }],
+                            }],
+                        },
+                    ],
+                },
+            },
+            Test {
+                string: "foo=bar{zoo=qat} , xxx{aaa=bbb}".to_string(),
+                value: Entry {
+                    name: "foo".to_string(),
+                    values: vec![
+                        Value {
+                            value: "bar".to_string(),
+                            children: vec![Entry {
+                                name: "zoo".to_string(),
+                                values: vec![Value {
+                                    value: "qat".to_string(),
+                                    children: vec![],
+                                }],
+                            }],
+                        },
+                        Value {
+                            value: "xxx".to_string(),
+                            children: vec![Entry {
+                                name: "aaa".to_string(),
+                                values: vec![Value {
+                                    value: "bbb".to_string(),
+                                    children: vec![],
+                                }],
+                            }],
+                        },
+                    ],
                 },
             },
             Test {
