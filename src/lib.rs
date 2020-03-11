@@ -53,6 +53,19 @@ pub fn parse_entry(input: &str) -> IResult<&str, Entry> {
     )(input)
 }
 
+pub fn print_entry(entry: &Entry) -> String {
+    format!(
+        "{}={}",
+        entry.name,
+        entry
+            .values
+            .iter()
+            .map(print_value)
+            .collect::<Vec<_>>()
+            .join(",")
+    )
+}
+
 pub fn parse_value(input: &str) -> IResult<&str, Value> {
     map(
         tuple((
@@ -70,6 +83,23 @@ pub fn parse_value(input: &str) -> IResult<&str, Value> {
     )(input)
 }
 
+pub fn print_value(value: &Value) -> String {
+    let children = if value.children.is_empty() {
+        "".to_string()
+    } else {
+        format!(
+            "{{{}}}",
+            value
+                .children
+                .iter()
+                .map(print_entry)
+                .collect::<Vec<_>>()
+                .join(" ")
+        )
+    };
+    format!("{}{}", value.value, children)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -78,12 +108,14 @@ mod tests {
     fn test_parse_entry() {
         struct Test {
             string: String,
+            canonical: String,
             value: Entry,
         };
 
         let tests = vec![
             Test {
                 string: "foo=bar".to_string(),
+                canonical: "foo=bar".to_string(),
                 value: Entry {
                     name: "foo".to_string(),
                     values: vec![Value {
@@ -94,6 +126,7 @@ mod tests {
             },
             Test {
                 string: "foo=true".to_string(),
+                canonical: "foo=true".to_string(),
                 value: Entry {
                     name: "foo".to_string(),
                     values: vec![Value {
@@ -104,6 +137,7 @@ mod tests {
             },
             Test {
                 string: "foo=a,b".to_string(),
+                canonical: "foo=a,b".to_string(),
                 value: Entry {
                     name: "foo".to_string(),
                     values: vec![
@@ -120,6 +154,7 @@ mod tests {
             },
             Test {
                 string: "foo=bar{zoo=qat}".to_string(),
+                canonical: "foo=bar{zoo=qat}".to_string(),
                 value: Entry {
                     name: "foo".to_string(),
                     values: vec![Value {
@@ -136,6 +171,7 @@ mod tests {
             },
             Test {
                 string: "foo=bar{zoo=qat},xxx{aaa=bbb}".to_string(),
+                canonical: "foo=bar{zoo=qat},xxx{aaa=bbb}".to_string(),
                 value: Entry {
                     name: "foo".to_string(),
                     values: vec![
@@ -163,7 +199,8 @@ mod tests {
                 },
             },
             Test {
-                string: "a=b{c=d{e=f g=h}i=j},k{l=m{n=o}}".to_string(),
+                string: "a=b{c=d{e=f}},k{l=m{n=o}}".to_string(),
+                canonical: "a=b{c=d{e=f}},k{l=m{n=o}}".to_string(),
                 value: Entry {
                     name: "a".to_string(),
                     values: vec![
@@ -175,7 +212,10 @@ mod tests {
                                     value: "d".to_string(),
                                     children: vec![Entry {
                                         name: "e".to_string(),
-                                        values: vec![],
+                                        values: vec![Value {
+                                            value: "f".to_string(),
+                                            children: vec![],
+                                        }],
                                     }],
                                 }],
                             }],
@@ -201,6 +241,7 @@ mod tests {
             },
             Test {
                 string: "foo=bar{zoo=qat} , xxx{aaa=bbb}".to_string(),
+                canonical: "foo=bar{zoo=qat},xxx{aaa=bbb}".to_string(),
                 value: Entry {
                     name: "foo".to_string(),
                     values: vec![
@@ -229,6 +270,7 @@ mod tests {
             },
             Test {
                 string: "foo=bar{ zoo=qat}".to_string(),
+                canonical: "foo=bar{zoo=qat}".to_string(),
                 value: Entry {
                     name: "foo".to_string(),
                     values: vec![Value {
@@ -245,6 +287,7 @@ mod tests {
             },
             Test {
                 string: "foo=bar { zoo=qat }".to_string(),
+                canonical: "foo=bar{zoo=qat}".to_string(),
                 value: Entry {
                     name: "foo".to_string(),
                     values: vec![Value {
@@ -261,6 +304,7 @@ mod tests {
             },
             Test {
                 string: "foo=bar111 { zoo=qat }".to_string(),
+                canonical: "foo=bar111{zoo=qat}".to_string(),
                 value: Entry {
                     name: "foo".to_string(),
                     values: vec![Value {
@@ -280,6 +324,7 @@ mod tests {
         for t in tests.iter() {
             // assert_eq!(t.string, print(&value));
             assert_eq!(Ok(("", t.value.clone())), parse_entry(&t.string));
+            assert_eq!(t.canonical, print_entry(&t.value));
         }
     }
 }
