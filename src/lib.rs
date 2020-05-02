@@ -29,7 +29,7 @@ struct Field {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub struct Entry {
+pub struct Binding {
     name: String,
     values: Vec<Value>,
 }
@@ -37,27 +37,27 @@ pub struct Entry {
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Value {
     value: String,
-    children: Vec<Entry>,
+    children: Vec<Binding>,
 }
 
-pub fn parse_entry(input: &str) -> IResult<&str, Entry> {
+pub fn parse_binding(input: &str) -> IResult<&str, Binding> {
     map(
         tuple((
             terminated(alphanumeric1, tag("=")),
             separated_list(terminated(tag(","), multispace0), parse_value),
         )),
-        |(name, values): (&str, Vec<Value>)| Entry {
+        |(name, values): (&str, Vec<Value>)| Binding {
             name: name.to_string(),
             values,
         },
     )(input)
 }
 
-pub fn print_entry(entry: &Entry) -> String {
+pub fn print_binding(binding: &Binding) -> String {
     format!(
         "{}={}",
-        entry.name,
-        entry
+        binding.name,
+        binding
             .values
             .iter()
             .map(print_value)
@@ -72,11 +72,11 @@ pub fn parse_value(input: &str) -> IResult<&str, Value> {
             terminated(alphanumeric1, multispace0),
             opt(delimited(
                 terminated(tag("{"), multispace0),
-                separated_list(multispace1, parse_entry),
+                separated_list(multispace1, parse_binding),
                 terminated(tag("}"), multispace0),
             )),
         )),
-        |(value, children): (&str, Option<Vec<Entry>>)| Value {
+        |(value, children): (&str, Option<Vec<Binding>>)| Value {
             value: value.to_string(),
             children: children.unwrap_or(vec![]),
         },
@@ -92,7 +92,7 @@ pub fn print_value(value: &Value) -> String {
             value
                 .children
                 .iter()
-                .map(print_entry)
+                .map(print_binding)
                 .collect::<Vec<_>>()
                 .join(" ")
         )
@@ -105,18 +105,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_entry() {
+    fn test_parse_binding() {
         struct Test {
             string: String,
             canonical: String,
-            value: Entry,
+            value: Binding,
         };
 
         let tests = vec![
             Test {
                 string: "foo=bar".to_string(),
                 canonical: "foo=bar".to_string(),
-                value: Entry {
+                value: Binding {
                     name: "foo".to_string(),
                     values: vec![Value {
                         value: "bar".to_string(),
@@ -127,7 +127,7 @@ mod tests {
             Test {
                 string: "foo=true".to_string(),
                 canonical: "foo=true".to_string(),
-                value: Entry {
+                value: Binding {
                     name: "foo".to_string(),
                     values: vec![Value {
                         value: "true".to_string(),
@@ -138,7 +138,7 @@ mod tests {
             Test {
                 string: "foo=a,b".to_string(),
                 canonical: "foo=a,b".to_string(),
-                value: Entry {
+                value: Binding {
                     name: "foo".to_string(),
                     values: vec![
                         Value {
@@ -155,11 +155,11 @@ mod tests {
             Test {
                 string: "foo=bar{zoo=qat}".to_string(),
                 canonical: "foo=bar{zoo=qat}".to_string(),
-                value: Entry {
+                value: Binding {
                     name: "foo".to_string(),
                     values: vec![Value {
                         value: "bar".to_string(),
-                        children: vec![Entry {
+                        children: vec![Binding {
                             name: "zoo".to_string(),
                             values: vec![Value {
                                 value: "qat".to_string(),
@@ -172,12 +172,12 @@ mod tests {
             Test {
                 string: "foo=bar{zoo=qat},xxx{aaa=bbb}".to_string(),
                 canonical: "foo=bar{zoo=qat},xxx{aaa=bbb}".to_string(),
-                value: Entry {
+                value: Binding {
                     name: "foo".to_string(),
                     values: vec![
                         Value {
                             value: "bar".to_string(),
-                            children: vec![Entry {
+                            children: vec![Binding {
                                 name: "zoo".to_string(),
                                 values: vec![Value {
                                     value: "qat".to_string(),
@@ -187,7 +187,7 @@ mod tests {
                         },
                         Value {
                             value: "xxx".to_string(),
-                            children: vec![Entry {
+                            children: vec![Binding {
                                 name: "aaa".to_string(),
                                 values: vec![Value {
                                     value: "bbb".to_string(),
@@ -201,16 +201,16 @@ mod tests {
             Test {
                 string: "a=b{c=d{e=f}},k{l=m{n=o}}".to_string(),
                 canonical: "a=b{c=d{e=f}},k{l=m{n=o}}".to_string(),
-                value: Entry {
+                value: Binding {
                     name: "a".to_string(),
                     values: vec![
                         Value {
                             value: "b".to_string(),
-                            children: vec![Entry {
+                            children: vec![Binding {
                                 name: "c".to_string(),
                                 values: vec![Value {
                                     value: "d".to_string(),
-                                    children: vec![Entry {
+                                    children: vec![Binding {
                                         name: "e".to_string(),
                                         values: vec![Value {
                                             value: "f".to_string(),
@@ -222,11 +222,11 @@ mod tests {
                         },
                         Value {
                             value: "k".to_string(),
-                            children: vec![Entry {
+                            children: vec![Binding {
                                 name: "l".to_string(),
                                 values: vec![Value {
                                     value: "m".to_string(),
-                                    children: vec![Entry {
+                                    children: vec![Binding {
                                         name: "n".to_string(),
                                         values: vec![Value {
                                             value: "o".to_string(),
@@ -242,12 +242,12 @@ mod tests {
             Test {
                 string: "foo=bar{zoo=qat} , xxx{aaa=bbb}".to_string(),
                 canonical: "foo=bar{zoo=qat},xxx{aaa=bbb}".to_string(),
-                value: Entry {
+                value: Binding {
                     name: "foo".to_string(),
                     values: vec![
                         Value {
                             value: "bar".to_string(),
-                            children: vec![Entry {
+                            children: vec![Binding {
                                 name: "zoo".to_string(),
                                 values: vec![Value {
                                     value: "qat".to_string(),
@@ -257,7 +257,7 @@ mod tests {
                         },
                         Value {
                             value: "xxx".to_string(),
-                            children: vec![Entry {
+                            children: vec![Binding {
                                 name: "aaa".to_string(),
                                 values: vec![Value {
                                     value: "bbb".to_string(),
@@ -271,11 +271,11 @@ mod tests {
             Test {
                 string: "foo=bar{ zoo=qat}".to_string(),
                 canonical: "foo=bar{zoo=qat}".to_string(),
-                value: Entry {
+                value: Binding {
                     name: "foo".to_string(),
                     values: vec![Value {
                         value: "bar".to_string(),
-                        children: vec![Entry {
+                        children: vec![Binding {
                             name: "zoo".to_string(),
                             values: vec![Value {
                                 value: "qat".to_string(),
@@ -288,11 +288,11 @@ mod tests {
             Test {
                 string: "foo=bar { zoo=qat }".to_string(),
                 canonical: "foo=bar{zoo=qat}".to_string(),
-                value: Entry {
+                value: Binding {
                     name: "foo".to_string(),
                     values: vec![Value {
                         value: "bar".to_string(),
-                        children: vec![Entry {
+                        children: vec![Binding {
                             name: "zoo".to_string(),
                             values: vec![Value {
                                 value: "qat".to_string(),
@@ -305,11 +305,11 @@ mod tests {
             Test {
                 string: "foo=bar111 { zoo=qat }".to_string(),
                 canonical: "foo=bar111{zoo=qat}".to_string(),
-                value: Entry {
+                value: Binding {
                     name: "foo".to_string(),
                     values: vec![Value {
                         value: "bar111".to_string(),
-                        children: vec![Entry {
+                        children: vec![Binding {
                             name: "zoo".to_string(),
                             values: vec![Value {
                                 value: "qat".to_string(),
@@ -323,8 +323,8 @@ mod tests {
 
         for t in tests.iter() {
             // assert_eq!(t.string, print(&value));
-            assert_eq!(Ok(("", t.value.clone())), parse_entry(&t.string));
-            assert_eq!(t.canonical, print_entry(&t.value));
+            assert_eq!(Ok(("", t.value.clone())), parse_binding(&t.string));
+            assert_eq!(t.canonical, print_binding(&t.value));
         }
     }
 }
